@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function admin() { return signedIn() && request.auth.token.role == 'administrator'; }
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || admin());
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.role == 'citizen';
+      allow update: if signedIn()
+        && (admin() || (request.auth.uid == uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.role == resource.data.role));
+      allow delete: if admin();
+    }
+    match /FloodAlerts/{id} { allow read: if signedIn(); allow write: if admin(); }
+    match /FloodReports/{id} {
+allow read: if signedIn() && (admin() || resource.data.userId == request.auth.uid || resource.data.isDemonstration == true);
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid && request.resource.data.status == 'Pending';
+      allow update: if admin();
+      allow delete: if admin();
+    }
+    match /Shelters/{id} { allow read: if signedIn(); allow write: if admin(); }
+    match /Resources/{id} { allow read: if signedIn(); allow write: if admin(); }
+    match /EmergencyRequests/{id} { allow read: if signedIn() && (admin() || resource.data.userId == request.auth.uid); allow create: if signedIn() && request.resource.data.userId == request.auth.uid; allow update, delete: if admin(); }
+  }
+}
